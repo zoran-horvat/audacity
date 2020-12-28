@@ -38,7 +38,6 @@
 
 #include "../Audacity.h"
 #include "NoiseReduction.h"
-
 #include "../Experimental.h"
 
 #include "LoadEffects.h"
@@ -57,6 +56,7 @@
 #include <algorithm>
 #include <vector>
 #include <math.h>
+#include <string>
 
 #if defined(__WXMSW__) && !defined(__CYGWIN__)
 #include <float.h>
@@ -944,6 +944,13 @@ void EffectNoiseReduction::Worker::ProcessSamples
    while (len && mOutStepCount * mStepSize < mInSampleCount) {
       auto avail = std::min(len, mWindowSize - mInWavePos);
       memmove(&mInWaveBuffer[mInWavePos], buffer, avail * sizeof(float));
+
+      std::wstring msg =
+          L"ANALYZE Copied " + std::to_wstring(avail) + L" samples buffer->mInWaveBuffer; " +
+          L"moved buffer and mInWaveBuffer by " + std::to_wstring(avail) + L"; " +
+          std::to_wstring(len - avail) + L" samples remaining\n";
+      OutputDebugString(msg.c_str());
+
       buffer += avail;
       len -= avail;
       mInWavePos += avail;
@@ -967,15 +974,23 @@ void EffectNoiseReduction::Worker::ProcessSamples
 
 void EffectNoiseReduction::Worker::FillFirstHistoryWindow()
 {
+    std::wstring msg;
    // Transform samples to frequency domain, windowed as needed
-   if (mInWindow.size() > 0)
-      for (size_t ii = 0; ii < mWindowSize; ++ii)
-         mFFTBuffer[ii] = mInWaveBuffer[ii] * mInWindow[ii];
-   else
-      memmove(&mFFTBuffer[0], &mInWaveBuffer[0], mWindowSize * sizeof(float));
-   RealFFTf(&mFFTBuffer[0], hFFT.get());
+    if (mInWindow.size() > 0) {
+        for (size_t ii = 0; ii < mWindowSize; ++ii)
+            mFFTBuffer[ii] = mInWaveBuffer[ii] * mInWindow[ii];
+        msg = L"ANALYZE Copied " + std::to_wstring(mWindowSize) + L" samples to mFFTBuffer; forward FFT completed\n";
+        OutputDebugString(msg.c_str());
+    }
+    else
+        memmove(&mFFTBuffer[0], &mInWaveBuffer[0], mWindowSize * sizeof(float));
+    RealFFTf(&mFFTBuffer[0], hFFT.get());
 
-   Record &record = *mQueue[0];
+    Record &record = *mQueue[0];
+
+    msg = L"ANALYZE Populated Queue[0] real[], imag[], spectrums[] " +
+        std::to_wstring(mSpectrumSize) + L" elements\n";
+    OutputDebugString(msg.c_str());
 
    // Store real and imaginary parts for later inverse FFT, and compute
    // power
@@ -1007,6 +1022,10 @@ void EffectNoiseReduction::Worker::FillFirstHistoryWindow()
       // until we decide to raise some of them later
       float *pGain = &record.mGains[0];
       std::fill(pGain, pGain + mSpectrumSize, mNoiseAttenFactor);
+      msg = 
+          L"ANALYZE Initialized Queue[0] gain[] to " + 
+          std::to_wstring(mSpectrumSize) + "x" + std::to_wstring(mNoiseAttenFactor) + L"\n";
+      OutputDebugString(msg.c_str());
    }
 }
 
@@ -1321,6 +1340,10 @@ bool EffectNoiseReduction::Worker::ProcessOne
 
    auto bufferSize = track->GetMaxBlockSize();
    FloatVector buffer(bufferSize);
+   std::wstring msg = 
+       L"ANALYZE Allocating buffer " + std::to_wstring(bufferSize) + L" bytes (" + 
+       std::to_wstring(bufferSize / sizeof(float)) + L" samples)\n";
+   OutputDebugString(msg.c_str());
 
    bool bLoopSuccess = true;
    auto samplePos = start;
@@ -1333,7 +1356,14 @@ bool EffectNoiseReduction::Worker::ProcessOne
 
       //Get the samples from the track and put them in the buffer
       track->Get((samplePtr)&buffer[0], floatSample, samplePos, blockSize);
+
+      msg =
+          L"ANALIZE Copied samples to buffer: " + std::to_wstring(blockSize) + L" samples " +
+          std::to_wstring(samplePos.as_size_t()) + L"-" + std::to_wstring((samplePos + blockSize).as_size_t()) + L"\n";
+
       samplePos += blockSize;
+
+      OutputDebugString(msg.c_str());
 
       mInSampleCount += blockSize;
       ProcessSamples(statistics, outputTrack.get(), blockSize, &buffer[0]);
