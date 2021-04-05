@@ -12,6 +12,8 @@ libtool
 stamp-h*
 stamp-po
 *.stamp
+.vs
+out
 
 # Handcrafted makefiles
 !lib-src/expat/amiga/Makefile
