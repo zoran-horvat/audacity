@@ -948,7 +948,8 @@ void EffectNoiseReduction::Worker::ProcessSamples
 		memmove(&mInWaveBuffer[mInWavePos], buffer, avail * sizeof(float));
 
 		std::wstring msg =
-			L"ANALYZE Copied " + std::to_wstring(avail) + L" samples buffer->mInWaveBuffer; " +
+			L"ANALYZE Copied " + std::to_wstring(avail) + L" samples mInWaveBuffer[" + 
+			std::to_wstring(mInWavePos) + L"] -> buffer; " +
 			L"moved buffer and mInWaveBuffer by " + std::to_wstring(avail) + L"; " +
 			std::to_wstring(len - avail) + L" samples remaining\n";
 		OutputDebugString(msg.c_str());
@@ -1225,6 +1226,11 @@ void EffectNoiseReduction::Worker::ReduceNoise
 			}
 
 			if (firstReset >= 0 && index > firstReset) {
+				if (index < 1025)
+				{
+					int x = 0;
+				}
+
 				std::wstring msg = L"ANALYZE Gain[" + std::to_wstring(firstReset) + L"-" + std::to_wstring(index - 1) + L"] classified as noise\n";
 				OutputDebugString(msg.c_str());
 			}
